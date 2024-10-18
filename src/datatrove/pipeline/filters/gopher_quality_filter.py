@@ -16,18 +16,19 @@ class GopherQualityFilter(BaseFilter):
 
     def __init__(
         self,
-        min_doc_words: int | None = 50,
-        max_doc_words: int | None = 100000,
-        min_avg_word_length: int | None = 3,
-        max_avg_word_length: int | None = 10,
-        max_symbol_word_ratio: float | None = 0.1,
-        max_bullet_lines_ratio: float | None = 0.9,
-        max_ellipsis_lines_ratio: float | None = 0.3,
-        max_non_alpha_words_ratio: float | None = 0.8,
-        min_stop_words: int | None = 2,
+        min_doc_words: int | None = 0, #50,
+        max_doc_words: int | None = 10000000, #10000,
+        min_avg_word_length: int | None = 0, #3,
+        max_avg_word_length: int | None = 10000, #10,
+        max_symbol_word_ratio: float | None = 1, #0.1,
+        max_bullet_lines_ratio: float | None = 1, #0.9,
+        max_ellipsis_lines_ratio: float | None = 1, #0.3,
+        max_non_alpha_words_ratio: float | None = 0, #0.8,
+        min_stop_words: int | None = 0,#2,
         stop_words: list[str] | None = None,
         exclusion_writer: DiskWriter = None,
         language: str = Languages.english,
+        ellipsis_line_word_threshold: int | None = 100,
     ):
         """
         Filter to apply Gopher's quality heuristic rules.
@@ -58,6 +59,8 @@ class GopherQualityFilter(BaseFilter):
         self.min_stop_words = min_stop_words
         self.stop_words = set(STOP_WORDS if stop_words is None else stop_words)
         self.tokenizer = load_word_tokenizer(language)
+        
+        self.ellipsis_line_word_threshold = ellipsis_line_word_threshold
 
     def filter(self, doc: Document) -> bool | tuple[bool, str]:
         """
@@ -106,9 +109,10 @@ class GopherQualityFilter(BaseFilter):
             return False, "gopher_too_many_bullets"
         if (
             self.max_ellipsis_lines_ratio
-            and sum(s.rstrip().endswith("...") or s.rstrip().endswith("…") for s in lines) / len(lines)
+            and sum((s.rstrip().endswith("...") or s.rstrip().endswith("…")) and len(s.strip()) < self.ellipsis_line_word_threshold for s in lines) / len(lines)
             > self.max_ellipsis_lines_ratio
         ):
+            
             return False, "gopher_too_many_end_ellipsis"
 
         # that 80 % of words in a document contain at least one alphabetic character

@@ -9,7 +9,7 @@ from datatrove.pipeline.filters.base_filter import BaseFilter
 from datatrove.pipeline.writers.disk_base import DiskWriter
 from datatrove.utils.typeshelper import Languages
 from datatrove.utils.word_tokenizers import load_word_tokenizer
-
+import jieba
 
 CITATION_REGEX = re.compile(r"\[\d*]|\[edit]|\[citation needed]")
 END_PUNCTUATION = (".", "?", "!", '"', "'")
@@ -21,6 +21,15 @@ POLICY_SUBSTRINGS = [
     "uses cookies",
     "use of cookies",
     "use cookies",
+    "copyright",
+    "使用條款",
+    "隱私政策",
+    "cookie政策",
+    "使用cookies",
+    "使用cookie",
+    "使用条款",
+    "隐私政策",
+    "隱私聲明",
 ]
 
 
@@ -70,6 +79,7 @@ class C4QualityFilter(BaseFilter):
         filter_javascript: bool = True,
         filter_curly_bracket: bool = True,
         filter_policy: bool = True,
+        bracket_ratio = 0.01, # set -1 to disable,
         language: str = Languages.english,
     ):
         super().__init__(exclusion_writer)
@@ -83,17 +93,25 @@ class C4QualityFilter(BaseFilter):
         self.filter_javascript = filter_javascript
         self.filter_curly_bracket = filter_curly_bracket
         self.filter_policy = filter_policy
+        self.bracket_ratio = bracket_ratio
         self.tokenizer = load_word_tokenizer(language)
+        self.language=language
 
     def filter(self, doc: Document) -> bool | tuple[bool, str]:
         lines = doc.text.splitlines() if self.split_paragraph else self.tokenizer.sent_tokenize(doc.text)
 
         num_sentences = 0
         kept_lines = []
-
+        total_words=0
+        total_lines=0
         for line in lines:
             line = line.strip()
-            words = line.split()
+            if self.language=="zh":
+                words=list(jieba.cut(line))
+            else:
+                words = line.split()
+            total_words+=len(words)
+            total_lines+=1
             self.stat_update("line-total")
             # check line has too long word
             if self.max_word_length != -1 and any(len(word) > self.max_word_length for word in words):
@@ -120,7 +138,9 @@ class C4QualityFilter(BaseFilter):
                 continue
             # bracket
             if self.filter_curly_bracket and "{" in line:
-                return False, "curly_bracket"  # drop entire doc
+                # return False, "curly_bracket"  # drop entire doc
+                self.stat_update("curly_bracket")
+                continue
             # policy
             if self.filter_policy and any(p in line_l for p in POLICY_SUBSTRINGS):
                 self.stat_update("line-filter-policy")
@@ -131,6 +151,16 @@ class C4QualityFilter(BaseFilter):
             self.stat_update("line-kept")
         if num_sentences < self.min_num_sentences:
             return False, "too_few_sentences"
+        if self.bracket_ratio != -1:
+            ratio = doc.text.count('{') / len(doc.text)
+            if ratio > self.bracket_ratio:
+                return False, "curly_bracket_ratio" #drop entire doc
+        if total_lines > 0:
+            avg_words_per_line = total_words/total_lines
+            if avg_words_per_line < 5:
+                return False, "avg_words_per_line"  # drop entire doc
+                
+            doc.metadata['avg_words_per_line']=avg_words_per_line
 
         doc.text = ("\n" if self.split_paragraph else " ").join(kept_lines).strip()
         return True

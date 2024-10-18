@@ -127,11 +127,15 @@ class SentenceDedupSignature(PipelineStep):
 
     def get_hashes(self, doc: Document, doc_idx: int) -> list[None] | list[tuple[int, int, int]]:
         sentences = self.tokenizer.sent_tokenize(doc.text) if self.config.split_sentences else doc.text.splitlines()
+        #print(sentences)
         if len(sentences) < self.config.n_sentences:
             return []
 
         sentences_tokens = [simplify_text(sent, self.config.norm_config) for sent in sentences]
+        #print(sentences_tokens)
         n_sent_grams: list = [" ".join(x) for x in ngrams(sentences_tokens, self.config.n_sentences)]
+        #print(n_sent_grams)
+        
         hashes = [
             (self.hash_fc(n_sent_gram), doc_idx, sentence_idx)
             for sentence_idx, n_sent_gram in enumerate(n_sent_grams)
@@ -414,6 +418,11 @@ class SentenceDedupFilter(PipelineStep):
                             doc, all_dups["sent"][sents_span_l:sents_span_r]
                         )
                         dups_doc_i += 1
+                #print(filtered_text)
+                #print("----")
+                
+                #if dups_doc_i == 2:
+                #    input()
 
                 if (
                     (
@@ -422,7 +431,7 @@ class SentenceDedupFilter(PipelineStep):
                             (
                                 # min doc words
                                 self.config.min_doc_words <= 0
-                                or len(self.tokenizer.word_tokenize(filtered_text)) >= self.config.min_doc_words
+                                or len(filtered_text) >= self.config.min_doc_words #len(self.tokenizer.word_tokenize(filtered_text)) >= self.config.min_doc_words
                             )
                             and (
                                 # min num sentences
