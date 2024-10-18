@@ -1,3 +1,7 @@
+# DataTrove-zhtw
+
+DataTrove-zhtw is a patched version of Datatrove to account for the linguistic needs of the filtering data in Traditional Chinese.
+
 # DataTrove
 
 DataTrove is a library to process, filter and deduplicate text data at a very large scale. It provides a set of prebuilt commonly used processing blocks with a framework to easily add custom functionality.
