@@ -80,7 +80,7 @@ class GopherQualityFilter(BaseFilter):
         n_non_symbol_words_words = len(non_symbol_words)
 
         # words < min_doc_words or words > max_doc_words
-        if self.min_doc_words and n_non_symbol_words_words < self.min_doc_words:
+        if self.min_doc_words and n_non_symbol_words_words < self.min_doc_words and doc.metadata['language'] == "zh":
             return False, "gopher_short_doc"
         if self.max_doc_words and n_non_symbol_words_words > self.max_doc_words:
             return False, "gopher_long_doc"
@@ -123,7 +123,7 @@ class GopherQualityFilter(BaseFilter):
             return False, "gopher_below_alpha_threshold"
 
         # stop word filter
-        if self.min_stop_words and sum(w in self.stop_words for w in words) < self.min_stop_words:
+        if self.min_stop_words and sum(w in self.stop_words for w in words) < self.min_stop_words and doc.metadata['language'] == 'zh':
             return False, "gopher_enough_stop_words"
 
         return True
